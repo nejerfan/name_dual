@@ -5,15 +5,19 @@ import time
 from streamlit_stl import stl_from_file
 
 def letter(let, angle, fontPath=""):
-    """Extrude a letter, center it and rotate of the input angle"""
+    """Extrude a letter, center it, rotate at the input angle, and cut it vertically."""
     wp = (cq.Workplane('XZ')
         .text(let, fontsize, extr, fontPath=fontPath, valign='bottom')
         )
+    # Cutting the letter in half vertically
+    half_cut = cq.Workplane("XZ").box(fontsize, extr, extr*2).translate([-fontsize/2, extr/2, 0])
+    wp = wp.cut(half_cut)
+
     b_box = wp.combine().objects[0].BoundingBox()
-    x_shift = -(b_box.xlen/2 + b_box.xmin )
-    wp = (wp.translate([x_shift,extr/2,0])
-        .rotate((0,0,0),(0,0,1),angle)
-        )
+    x_shift = -(b_box.xlen / 2 + b_box.xmin)
+    wp = (wp.translate([x_shift, extr / 2, 0])
+          .rotate((0, 0, 0), (0, 0, 1), angle)
+          )
     return wp
 
 
@@ -25,28 +29,28 @@ def dual_text(text1, text2, fontPath='', save='stl', b_h=2, b_pad=2, b_fil_per=0
     for ind, ab in enumerate(zip(text1, text2)):
         try:
             a = letter(ab[0], 45, fontPath=fontPath)
-            b = letter(ab[1], 135, fontPath=fontPath,)
+            b = letter(ab[1], 135, fontPath=fontPath)
             a_inter_b = a & b
             b_box = a_inter_b.objects[0].BoundingBox()
             a_inter_b = a_inter_b.translate([0,-b_box.ymin,0])
             if ind:
                 a_inter_b = a_inter_b.translate([0,last_ymax + space,0])
             last_ymax = a_inter_b.objects[0].BoundingBox().ymax
-            res.add( a_inter_b) # add the intersection to the assebmly
+            res.add(a_inter_b) # add the intersection to the assembly
         except:
-            last_ymax += space*1.5
+            last_ymax += space * 1.5
 
     b_box = res.toCompound().BoundingBox() # calculate the bounding box
     # add the base to the assembly
     res.add(cq.Workplane()
-            .box(b_box.xlen+b_pad*2, b_box.ylen+b_pad*2, b_h, centered=(1,0,0))
+            .box(b_box.xlen + b_pad * 2, b_box.ylen + b_pad * 2, b_h, centered=(1, 0, 0))
             .translate([0, -b_pad, -b_h])
             .edges('|Z')
-            .fillet(b_box.xlen/2*b_fil_per)
+            .fillet(b_box.xlen / 2 * b_fil_per)
             )
-    # convert the assemly toa shape and center it
+    # convert the assembly to a shape and center it
     res = res.toCompound()
-    res = res.translate([0, -b_box.ylen/2,0])
+    res = res.translate([0, -b_box.ylen / 2, 0])
     # export the files
     cq.exporters.export(res, f'file_display.stl')
     cq.exporters.export(res, f"{export_name}.{save}")
@@ -72,7 +76,7 @@ if __name__ == "__main__":
         text2 = st.text_input('Second text', value="WORK")
     with col3:
         fontsize = st.number_input('Font size', min_value=1, max_value=None, value=20)
-        extr = fontsize*2 # extrude letter
+        extr = fontsize * 2 # extrude letter
 
     if len(text1) != len(text2):
         st.warning("The two texts don't have the same length, letters in excess will be cut", icon="⚠️")
@@ -108,11 +112,9 @@ if __name__ == "__main__":
     with col3:
         b_fil_per = st.slider('Base fillet (%)', 0, 100, step=1, value=80) / 100
 
-
     col1, _, _ = st.columns(3)
     with col1:
         out = st.selectbox('Output file type', ['stl', 'step'])
-            
 
     if st.button('Render'):
         start = time.time()
@@ -122,17 +124,16 @@ if __name__ == "__main__":
         if f'file.{out}' not in os.listdir():
             st.error('The program was not able to generate the mesh.', icon="🚨")
         else:
-            st.success(f'Rendered in {int(end-start)} seconds', icon="✅")
+            st.success(f'Rendered in {int(end - start)} seconds', icon="✅")
             with open(f'file.{out}', "rb") as file:
                 btn = st.download_button(
-                        label=f"Download {out}",
-                        data=file,
-                        file_name=f'TextTango_{text1}_{text2}.{out}',
-                        mime=f"model/{out}"
-                    )
+                    label=f"Download {out}",
+                    data=file,
+                    file_name=f'TextTango_{text1}_{text2}.{out}',
+                    mime=f"model/{out}"
+                )
             st.markdown("Post the make [on Printables](https://www.printables.com/it/model/520333-texttango-dual-letter-illusion) to support the project!", unsafe_allow_html=True)
             st.markdown("I am a student who enjoys 3D printing and programming. To support me with a coffee, just [click here!](https://www.paypal.com/donate/?hosted_button_id=V4LJ3Z3B3KXRY)", unsafe_allow_html=True)
 
             # stl preview
             stl_from_file('file_display.stl')
-
