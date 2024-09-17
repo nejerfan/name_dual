@@ -1,5 +1,4 @@
 numpy==1.26
 cadquery
 streamlit_stl
-cadquery
 OCP
